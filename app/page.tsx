@@ -184,20 +184,20 @@ export default function HomePage() {
             <div className="max-w-3xl mx-auto space-y-4">
               {[
                 {
-                  question: 'What is StreamFlix?',
-                  answer: 'StreamFlix is a streaming service that offers a wide variety of award-winning TV shows, movies, anime, documentaries, and more on thousands of internet-connected devices.',
+                  question: 'What is RaiseTalks.TV?',
+                  answer: 'RaiseTalks.TV is a streaming service that offers a wide variety of award-winning TV shows, movies, anime, documentaries, and more on thousands of internet-connected devices.',
                 },
                 {
-                  question: 'How much does StreamFlix cost?',
-                  answer: 'Watch StreamFlix on your smartphone, tablet, Smart TV, laptop, or streaming device, all for one fixed monthly fee. Plans range from $9.99 to $19.99 a month. No extra costs, no contracts.',
+                  question: 'How much does RaiseTalks.TV cost?',
+                  answer: 'Watch RaiseTalks.TV on your smartphone, tablet, Smart TV, laptop, or streaming device, all for one fixed monthly fee. Plans range from $9.99 to $19.99 a month. No extra costs, no contracts.',
                 },
                 {
                   question: 'Where can I watch?',
-                  answer: 'Watch anywhere, anytime. Sign in with your StreamFlix account to watch instantly on the web at streamflix.com from your personal computer or on any internet-connected device.',
+                  answer: 'Watch anywhere, anytime. Sign in with your RaiseTalks.TV account to watch instantly on the web at raisetalks.tv from your personal computer or on any internet-connected device.',
                 },
                 {
                   question: 'How do I cancel?',
-                  answer: 'StreamFlix is flexible. There are no pesky contracts and no commitments. You can easily cancel your account online in two clicks. There are no cancellation fees  start or stop your account anytime.',
+                  answer: 'RaiseTalks.TV is flexible. There are no pesky contracts and no commitments. You can easily cancel your account online in two clicks. There are no cancellation fees  start or stop your account anytime.',
                 },
               ].map((faq, index) => (
                 <motion.details
@@ -280,7 +280,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="text-center text-gray-500 text-sm">
-            <p>&copy; 2024 StreamFlix. All rights reserved.</p>
+            <p>&copy; 2024 RaiseTalks.TV. All rights reserved.</p>
           </div>
         </div>
       </footer>

@@ -14,7 +14,7 @@ interface HeroSectionProps {
 
 export default function HeroSection({
   videoUrl = 'https://nlsqlstorage.blob.core.windows.net/videocontainer/raisetalks-tv-2k.mp4',
-  title = 'Unlimited movies, TV shows, and more',
+  title = 'Epic founders stories',
   description = 'Watch anywhere. Cancel anytime. Ready to watch? Sign up to get started.',
   showAuthButtons = true
 }: HeroSectionProps) {

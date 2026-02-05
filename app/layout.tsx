@@ -3,7 +3,7 @@ import "./globals.css";
 import Navbar from "../components/Navbar";
 
 export const metadata: Metadata = {
-  title: "StreamFlix - Watch Movies & TV Shows Online",
+  title: "RaiseTalks.TV - Watch Movies & TV Shows Online",
   description: "Stream unlimited movies and TV shows on your favorite devices. Watch anywhere. Cancel anytime.",
 };
 

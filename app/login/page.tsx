@@ -116,6 +116,29 @@ export default function LoginPage() {
     }
   };
 
+  const handleLinkedInLogin = async () => {
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const { error: signInError } = await supabase.auth.signInWithOAuth({
+        provider: 'linkedin_oidc',
+        options: {
+          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/library`,
+        },
+      });
+
+      if (signInError) {
+        setError(signInError.message);
+        setIsLoading(false);
+      }
+    } catch (err) {
+      console.error('LinkedIn login error:', err);
+      setError('Failed to sign in with LinkedIn');
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[var(--background)] flex items-center justify-center px-4 py-12">
       <div className="absolute inset-0 overflow-hidden">
@@ -264,10 +287,11 @@ export default function LoginPage() {
                 </button>
                 <button
                   type="button"
+                  onClick={handleLinkedInLogin}
                   className="flex-1 py-2 px-4 bg-[var(--secondary)] hover:bg-[var(--muted)] text-white rounded transition-colors text-sm font-medium"
                   disabled={isLoading}
                 >
-                  Facebook
+                  LinkedIn
                 </button>
               </div>
             </div>

@@ -137,7 +137,7 @@ export default function SignUpPage() {
         <div className="bg-[var(--card)] rounded-lg p-8 md:p-10 shadow-2xl border border-[var(--border)]">
           <div className="text-center mb-8">
             <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">Create Account</h1>
-            <p className="text-gray-400">Join StreamFlix today</p>
+            <p className="text-gray-400">Join RaiseTalks.TV today</p>
           </div>
 
           {error && (

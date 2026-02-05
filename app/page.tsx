@@ -60,10 +60,10 @@ export default function HomePage() {
           >
             <div>
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 md:mb-6">
-                Enjoy on your TV
+                Create your own story!
               </h2>
               <p className="text-base md:text-lg text-gray-300 leading-relaxed">
-                Watch on Smart TVs, PlayStation, Xbox, Chromecast, Apple TV, Blu-ray players, and more.
+                Subscribe and design your own founders story to stand out in front of investors!
               </p>
             </div>
             <div className="relative">

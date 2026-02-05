@@ -74,7 +74,7 @@ export default function Navbar({ isAuthenticated = false }: NavbarProps) {
               onClick={() => router.push(isAuthenticated ? '/library' : '/')}
               className="text-[var(--primary)] text-2xl md:text-3xl font-bold tracking-tight hover:scale-105 transition-transform"
             >
-              STREAMFLIX
+              RAISETALKS.TV
             </button>
 
             <div className="hidden md:flex items-center gap-6">

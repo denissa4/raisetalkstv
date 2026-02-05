@@ -15,7 +15,7 @@ interface HeroSectionProps {
 export default function HeroSection({
   videoUrl = 'https://nlsqlstorage.blob.core.windows.net/videocontainer/raisetalks-tv-2k.mp4',
   title = 'Epic founders stories',
-  description = 'Watch anywhere. Cancel anytime. Ready to watch? Sign up to get started.',
+  description = 'Ready to watch? Sign up to get started.',
   showAuthButtons = true
 }: HeroSectionProps) {
   const [isMuted, setIsMuted] = useState(true);

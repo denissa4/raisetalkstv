@@ -25,12 +25,19 @@ function LibraryContent() {
   const [myList, setMyList] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>(['All']);
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [currentView, setCurrentView] = useState<'home' | 'mylist' | 'browse'>('home');
   const router = useRouter();
   const searchParams = useSearchParams();
 
   useEffect(() => {
     checkAuthAndLoadData();
   }, []);
+
+  // Handle view parameter changes
+  useEffect(() => {
+    const view = searchParams.get('view') as 'home' | 'mylist' | 'browse' | null;
+    setCurrentView(view || 'home');
+  }, [searchParams]);
 
   useEffect(() => {
     filterVideosByCategory();
@@ -326,29 +333,38 @@ function LibraryContent() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
+          {/* Header changes based on view */}
           <div className="mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold text-white mb-6">Browse Library</h1>
+            <h1 className="text-3xl md:text-4xl font-bold text-white mb-6">
+              {currentView === 'mylist' ? 'My List' : currentView === 'browse' ? 'Browse Library' : 'Home'}
+            </h1>
             
-            <div className="flex flex-wrap gap-3">
-              {categories.map((category, index) => (
-                <button
-                  key={`category-${index}-${category}`}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`px-4 md:px-6 py-2 rounded-full font-semibold transition-all duration-300 ${
-                    selectedCategory === category
-                      ? 'bg-[var(--primary)] text-white scale-105'
-                      : 'bg-[var(--secondary)] text-gray-300 hover:bg-[var(--muted)] hover:text-white'
-                  }`}
-                >
-                  {category}
-                </button>
-              ))}
-            </div>
+            {/* Category filters - show on home and browse views */}
+            {(currentView === 'home' || currentView === 'browse') && (
+              <div className="flex flex-wrap gap-3">
+                {categories.map((category, index) => (
+                  <button
+                    key={`category-${index}-${category}`}
+                    onClick={() => setSelectedCategory(category)}
+                    className={`px-4 md:px-6 py-2 rounded-full font-semibold transition-all duration-300 ${
+                      selectedCategory === category
+                        ? 'bg-[var(--primary)] text-white scale-105'
+                        : 'bg-[var(--secondary)] text-gray-300 hover:bg-[var(--muted)] hover:text-white'
+                    }`}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {myList.length > 0 && (
+          {/* My List section - show on home view or mylist view */}
+          {(currentView === 'home' || currentView === 'mylist') && myList.length > 0 && (
             <div className="mb-12">
-              <h2 className="text-2xl md:text-3xl font-bold text-white mb-6">My List</h2>
+              {currentView === 'home' && (
+                <h2 className="text-2xl md:text-3xl font-bold text-white mb-6">My List</h2>
+              )}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {videos
                   .filter(video => myList.includes(video.id))
@@ -369,34 +385,50 @@ function LibraryContent() {
             </div>
           )}
 
-          <div className="mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold text-white mb-6">
-              {selectedCategory === 'All' ? 'All Videos' : selectedCategory}
-            </h2>
-            
-            {filteredVideos.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {filteredVideos.map((video) => (
-                  <VideoCard
-                    key={video.id}
-                    id={video.id}
-                    title={video.title}
-                    description={video.description}
-                    thumbnailUrl={video.thumbnail_url}
-                    duration={video.duration}
-                    category={video.category}
-                    isInList={myList.includes(video.id)}
-                    onAddToList={handleAddToList}
-                    onRemoveFromList={handleRemoveFromList}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <p className="text-gray-400 text-lg">No videos found in this category.</p>
-              </div>
-            )}
-          </div>
+          {/* Empty My List message for mylist view */}
+          {currentView === 'mylist' && myList.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-400 text-lg mb-4">Your list is empty.</p>
+              <button
+                onClick={() => router.push('/library?view=browse')}
+                className="px-6 py-3 bg-[var(--primary)] text-white font-semibold rounded hover:bg-[var(--primary)]/90 transition-colors"
+              >
+                Browse Videos
+              </button>
+            </div>
+          )}
+
+          {/* All Videos section - show on home and browse views */}
+          {(currentView === 'home' || currentView === 'browse') && (
+            <div className="mb-8">
+              <h2 className="text-2xl md:text-3xl font-bold text-white mb-6">
+                {selectedCategory === 'All' ? 'All Videos' : selectedCategory}
+              </h2>
+              
+              {filteredVideos.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {filteredVideos.map((video) => (
+                    <VideoCard
+                      key={video.id}
+                      id={video.id}
+                      title={video.title}
+                      description={video.description}
+                      thumbnailUrl={video.thumbnail_url}
+                      duration={video.duration}
+                      category={video.category}
+                      isInList={myList.includes(video.id)}
+                      onAddToList={handleAddToList}
+                      onRemoveFromList={handleRemoveFromList}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-gray-400 text-lg">No videos found in this category.</p>
+                </div>
+              )}
+            </div>
+          )}
 
           {selectedCategory === 'All' && (
             <>

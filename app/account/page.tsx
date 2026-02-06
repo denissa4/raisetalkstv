@@ -82,23 +82,36 @@ export default function AccountPage() {
         setProfile(data);
         setDisplayName(data.display_name || '');
       } else {
-        const newProfile = {
-          user_id: userId,
-          display_name: userEmail.split('@')[0],
-          avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(userEmail)}&background=e50914&color=fff&size=200`,
-        };
+        
+        const defaultDisplayName = userEmail.split('@')[0];
+        try {
+          const response = await fetch('/api/create-profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: userId,
+              displayName: defaultDisplayName,
+            }),
+          });
 
-        const { data: createdProfile, error: createError } = await supabase
-          .from('user_profiles')
-          .insert([newProfile])
-          .select()
-          .single();
-
-        if (createError) {
-          console.error('Error creating profile:', createError);
-        } else {
-          setProfile(createdProfile);
-          setDisplayName(createdProfile.display_name || '');
+          if (response.ok) {
+            // Reload profile after creation
+            const { data: createdProfile } = await supabase
+              .from('user_profiles')
+              .select('*')
+              .eq('user_id', userId)
+              .single();
+            
+            if (createdProfile) {
+              setProfile(createdProfile);
+              setDisplayName(createdProfile.display_name || '');
+            }
+          } else {
+            const errorData = await response.json();
+            console.error('Error creating profile:', errorData.error || 'Unknown error');
+          }
+        } catch (err) {
+          console.error('Error creating profile:', err);
         }
       }
     } catch (error) {

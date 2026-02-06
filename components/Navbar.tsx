@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaSearch, FaBell, FaUser, FaCaretDown, FaBars, FaTimes } from 'react-icons/fa';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
 export default function Navbar() {
@@ -15,6 +15,7 @@ export default function Navbar() {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -68,16 +69,19 @@ export default function Navbar() {
 
   const navLinks = showAuthenticatedNav
     ? [
-        { name: 'Home', path: '/library' },
-        { name: 'My List', path: '/library' },
-        { name: 'Browse', path: '/library' },
+        { name: 'Home', path: '/library', view: 'home' },
+        { name: 'My List', path: '/library?view=mylist', view: 'mylist' },
+        { name: 'Browse', path: '/library?view=browse', view: 'browse' },
       ]
     : [
-        { name: 'Home', path: '/' },
+        { name: 'Home', path: '/', view: 'home' },
       ];
 
-  const isActivePath = (path: string) => {
-    return pathname === path;
+  const isActiveLink = (view: string) => {
+    if (pathname !== '/library') return view === 'home' && pathname === '/';
+    
+    const currentView = searchParams.get('view') || 'home';
+    return currentView === view;
   };
 
   return (
@@ -102,16 +106,16 @@ export default function Navbar() {
             <div className="hidden md:flex items-center gap-6">
               {navLinks.map((link) => (
                 <button
-                  key={link.path}
+                  key={link.name}
                   onClick={() => router.push(link.path)}
                   className={`text-sm font-medium transition-colors relative ${
-                    isActivePath(link.path)
+                    isActiveLink(link.view)
                       ? 'text-white'
                       : 'text-gray-300 hover:text-white'
                   }`}
                 >
                   {link.name}
-                  {isActivePath(link.path) && (
+                  {isActiveLink(link.view) && (
                     <motion.div
                       layoutId="navbar-indicator"
                       className="absolute -bottom-1 left-0 right-0 h-0.5 bg-[var(--primary)]"
@@ -216,13 +220,13 @@ export default function Navbar() {
             <div className="container mx-auto px-4 py-4">
               {navLinks.map((link) => (
                 <button
-                  key={link.path}
+                  key={link.name}
                   onClick={() => {
                     router.push(link.path);
                     setShowMobileMenu(false);
                   }}
                   className={`block w-full text-left px-4 py-3 text-sm font-medium rounded transition-colors ${
-                    isActivePath(link.path)
+                    isActiveLink(link.view)
                       ? 'text-white bg-[var(--secondary)]'
                       : 'text-gray-300 hover:text-white hover:bg-[var(--secondary)]'
                   }`}

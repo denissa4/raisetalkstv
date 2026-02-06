@@ -3,9 +3,10 @@ import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-11-20.acacia',
+  apiVersion: '2026-01-28.clover',
 });
 
+// Use service role key to bypass RLS
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -42,32 +43,65 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
+        console.log('Checkout session completed:', session.id);
+        console.log('User ID from metadata:', session.metadata?.user_id);
         
         if (session.mode === 'subscription' && session.subscription) {
-          const subscription = await stripe.subscriptions.retrieve(
+          const subscriptionData = await stripe.subscriptions.retrieve(
             session.subscription as string
-          );
+          ) as unknown as { id: string; status: string; current_period_end: number };
 
-          const { error } = await supabase.from('subscriptions').upsert({
-            user_id: session.metadata?.user_id,
-            stripe_customer_id: session.customer as string,
-            stripe_subscription_id: subscription.id,
-            status: subscription.status,
-            current_period_end: new Date(
-              subscription.current_period_end * 1000
-            ).toISOString(),
-          });
+          console.log('Subscription retrieved:', subscriptionData.id, 'Status:', subscriptionData.status);
+
+          const periodEnd = new Date(subscriptionData.current_period_end * 1000).toISOString();
+
+          // Try to update existing subscription first, then insert if not found
+          const { data: existing } = await supabase
+            .from('subscriptions')
+            .select('id')
+            .eq('user_id', session.metadata?.user_id)
+            .maybeSingle();
+
+          let error;
+          if (existing) {
+            // Update existing
+            const result = await supabase
+              .from('subscriptions')
+              .update({
+                stripe_customer_id: session.customer as string,
+                stripe_subscription_id: subscriptionData.id,
+                status: 'active',
+                current_period_end: periodEnd,
+              })
+              .eq('user_id', session.metadata?.user_id);
+            error = result.error;
+          } else {
+            // Insert new
+            const result = await supabase.from('subscriptions').insert({
+              user_id: session.metadata?.user_id,
+              stripe_customer_id: session.customer as string,
+              stripe_subscription_id: subscriptionData.id,
+              status: 'active',
+              current_period_end: periodEnd,
+            });
+            error = result.error;
+          }
 
           if (error) {
-            console.error('Error upserting subscription:', error);
+            console.error('Error saving subscription:', error);
             throw error;
           }
+          console.log('Subscription saved successfully');
         }
         break;
       }
 
       case 'customer.subscription.updated': {
-        const subscription = event.data.object as Stripe.Subscription;
+        const subscription = event.data.object as unknown as { 
+          id: string; 
+          status: string; 
+          current_period_end: number 
+        };
 
         const { error } = await supabase
           .from('subscriptions')

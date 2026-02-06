@@ -48,7 +48,7 @@ function WatchPageContent() {
         .single();
 
       if (!subscription) {
-        router.push('/signup');
+        router.push('/checkout');
         return;
       }
 
@@ -138,7 +138,8 @@ function WatchPageContent() {
         .limit(6);
 
       if (error) {
-        console.error('Error loading related videos:', error);
+        console.error('Error loading related videos:', error.message || error);
+       
         return;
       }
 

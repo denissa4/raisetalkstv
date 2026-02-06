@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import VideoCard from '../../components/VideoCard';
 import { supabase } from '@/lib/supabaseClient';
@@ -17,14 +17,16 @@ interface Video {
   created_at: string;
 }
 
-export default function LibraryPage() {
+function LibraryContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [videos, setVideos] = useState<Video[]>([]);
   const [filteredVideos, setFilteredVideos] = useState<Video[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [myList, setMyList] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>(['All']);
+  const [processingPayment, setProcessingPayment] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     checkAuthAndLoadData();
@@ -43,16 +45,75 @@ export default function LibraryPage() {
         return;
       }
 
+      // Check if user just came from Stripe checkout
+      const sessionId = searchParams.get('session_id');
+      
+      // Try to find active subscription
       const { data: subscription } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('user_id', session.user.id)
         .eq('status', 'active')
-        .single();
+        .maybeSingle();
 
       if (!subscription) {
-        router.push('/signup');
-        return;
+       
+        if (sessionId) {
+          setProcessingPayment(true);
+          let attempts = 0;
+          const maxAttempts = 10;
+          
+          const pollForSubscription = async (): Promise<boolean> => {
+            const { data: sub } = await supabase
+              .from('subscriptions')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .eq('status', 'active')
+              .maybeSingle();
+            
+            if (sub) {
+              setProcessingPayment(false);
+              return true;
+            }
+            
+            attempts++;
+            if (attempts < maxAttempts) {
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              return pollForSubscription();
+            }
+            return false;
+          };
+          
+          const found = await pollForSubscription();
+          if (!found) {
+            console.log('Subscription not found after polling, trying backup verification...');
+            
+            // Try to verify and create subscription directly from Stripe session
+            try {
+              const response = await fetch('/api/verify-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId }),
+              });
+              
+              const result = await response.json();
+              if (response.ok) {
+                console.log('Subscription created via backup verification');
+                setProcessingPayment(false);
+              } else {
+                console.error('Backup verification failed:', result.error || result);
+                // Still proceed to show the page
+                setProcessingPayment(false);
+              }
+            } catch (err) {
+              console.error('Backup verification error:', err);
+              setProcessingPayment(false);
+            }
+          }
+        } else {
+          router.push('/checkout');
+          return;
+        }
       }
 
       await loadVideos();
@@ -243,10 +304,16 @@ export default function LibraryPage() {
     localStorage.setItem('myList', JSON.stringify(newList));
   };
 
-  if (isLoading) {
+  if (isLoading || processingPayment) {
     return (
-      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center pt-20">
-        <div className="w-16 h-16 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-[var(--background)] flex flex-col items-center justify-center pt-20">
+        <div className="w-16 h-16 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin mb-4"></div>
+        {processingPayment && (
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-white mb-2">Processing Payment</h2>
+            <p className="text-gray-400">Please wait while we confirm your subscription...</p>
+          </div>
+        )}
       </div>
     );
   }
@@ -263,9 +330,9 @@ export default function LibraryPage() {
             <h1 className="text-3xl md:text-4xl font-bold text-white mb-6">Browse Library</h1>
             
             <div className="flex flex-wrap gap-3">
-              {categories.map((category) => (
+              {categories.map((category, index) => (
                 <button
-                  key={category}
+                  key={`category-${index}-${category}`}
                   onClick={() => setSelectedCategory(category)}
                   className={`px-4 md:px-6 py-2 rounded-full font-semibold transition-all duration-300 ${
                     selectedCategory === category
@@ -333,12 +400,12 @@ export default function LibraryPage() {
 
           {selectedCategory === 'All' && (
             <>
-              {categories.slice(1).map((category) => {
+              {categories.slice(1).map((category, index) => {
                 const categoryVideos = videos.filter(v => v.category === category).slice(0, 5);
                 if (categoryVideos.length === 0) return null;
 
                 return (
-                  <div key={category} className="mb-12">
+                  <div key={`section-${index}-${category}`} className="mb-12">
                     <div className="flex items-center justify-between mb-6">
                       <h2 className="text-2xl md:text-3xl font-bold text-white">{category}</h2>
                       <button
@@ -372,5 +439,17 @@ export default function LibraryPage() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+export default function LibraryPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center pt-20">
+        <div className="w-16 h-16 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    }>
+      <LibraryContent />
+    </Suspense>
   );
 }

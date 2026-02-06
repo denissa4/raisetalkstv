@@ -6,15 +6,13 @@ import { FaSearch, FaBell, FaUser, FaCaretDown, FaBars, FaTimes } from 'react-ic
 import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
-interface NavbarProps {
-  isAuthenticated?: boolean;
-}
-
-export default function Navbar({ isAuthenticated = false }: NavbarProps) {
+export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -28,23 +26,47 @@ export default function Navbar({ isAuthenticated = false }: NavbarProps) {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      const getUser = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          setUserEmail(user.email || null);
-        }
-      };
-      getUser();
-    }
-  }, [isAuthenticated]);
+    // Check authentication state
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setIsAuthenticated(true);
+        setUserEmail(session.user.email || null);
+      } else {
+        setIsAuthenticated(false);
+        setUserEmail(null);
+      }
+      setIsLoading(false);
+    };
+    
+    checkAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setIsAuthenticated(true);
+        setUserEmail(session.user.email || null);
+      } else {
+        setIsAuthenticated(false);
+        setUserEmail(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push('/');
   };
 
-  const navLinks = isAuthenticated
+  // Check if we're on a public page
+  const isPublicPage = ['/', '/login', '/signup'].includes(pathname);
+  
+  // Only show authenticated nav on protected pages
+  const showAuthenticatedNav = isAuthenticated && !isPublicPage;
+
+  const navLinks = showAuthenticatedNav
     ? [
         { name: 'Home', path: '/library' },
         { name: 'My List', path: '/library' },
@@ -101,7 +123,9 @@ export default function Navbar({ isAuthenticated = false }: NavbarProps) {
           </div>
 
           <div className="flex items-center gap-4 md:gap-6">
-            {isAuthenticated ? (
+            {isLoading ? (
+              <div className="w-8 h-8 rounded bg-[var(--secondary)] animate-pulse"></div>
+            ) : showAuthenticatedNav ? (
               <>
                 <button className="hidden md:flex items-center justify-center w-9 h-9 text-white hover:text-gray-300 transition-colors">
                   <FaSearch className="text-lg" />
@@ -206,7 +230,7 @@ export default function Navbar({ isAuthenticated = false }: NavbarProps) {
                   {link.name}
                 </button>
               ))}
-              {isAuthenticated && (
+              {showAuthenticatedNav && (
                 <>
                   <button
                     onClick={() => {

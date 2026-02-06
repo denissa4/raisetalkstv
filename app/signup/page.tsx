@@ -77,34 +77,24 @@ export default function SignUpPage() {
       }
 
       if (data.user) {
-        const { error: profileError } = await supabase
-          .from('user_profiles')
-          .insert([
-            {
-              user_id: data.user.id,
-              display_name: displayName,
-              avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=e50914&color=fff&size=200`,
-            },
-          ]);
+      
+        try {
+          const response = await fetch('/api/create-profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: data.user.id,
+              displayName: displayName,
+            }),
+          });
 
-        if (profileError) {
-          console.error('Error creating profile:', profileError);
-        }
-
-        const { error: subscriptionError } = await supabase
-          .from('subscriptions')
-          .insert([
-            {
-              user_id: data.user.id,
-              stripe_customer_id: `cus_${Math.random().toString(36).substring(7)}`,
-              stripe_subscription_id: `sub_${Math.random().toString(36).substring(7)}`,
-              status: 'active',
-              current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-            },
-          ]);
-
-        if (subscriptionError) {
-          console.error('Error creating subscription:', subscriptionError);
+          if (!response.ok) {
+            const error = await response.json();
+            console.error('Error creating profile:', error);
+          }
+        } catch (err) {
+          console.error('Failed to create profile:', err);
+          
         }
 
         router.push('/library');

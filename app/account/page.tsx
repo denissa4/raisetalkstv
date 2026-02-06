@@ -6,15 +6,6 @@ import { motion } from 'framer-motion';
 import { FaUser, FaCreditCard, FaSignOutAlt, FaEdit, FaCheck, FaTimes } from 'react-icons/fa';
 import { supabase } from '@/lib/supabaseClient';
 
-interface UserProfile {
-  id: string;
-  user_id: string;
-  display_name: string;
-  avatar_url: string;
-  created_at: string;
-  updated_at: string;
-}
-
 interface Subscription {
   id: string;
   user_id: string;
@@ -30,11 +21,12 @@ export default function AccountPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [userEmail, setUserEmail] = useState<string>('');
   const [userId, setUserId] = useState<string>('');
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [fullName, setFullName] = useState<string>('');
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [isEditingName, setIsEditingName] = useState(false);
-  const [displayName, setDisplayName] = useState('');
+  const [editedName, setEditedName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [memberSince, setMemberSince] = useState<string>('');
   const router = useRouter();
 
   useEffect(() => {
@@ -52,70 +44,21 @@ export default function AccountPage() {
 
       setUserEmail(session.user.email || '');
       setUserId(session.user.id);
+      
+      // Get name from user metadata
+      const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User';
+      setFullName(name);
+      setEditedName(name);
+      
+      // Get member since date
+      setMemberSince(session.user.created_at || '');
 
-      await Promise.all([
-        loadProfile(session.user.id),
-        loadSubscription(session.user.id)
-      ]);
+      await loadSubscription(session.user.id);
 
       setIsLoading(false);
     } catch (error) {
       console.error('Error loading account data:', error);
       setIsLoading(false);
-    }
-  };
-
-  const loadProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error loading profile:', error);
-        return;
-      }
-
-      if (data) {
-        setProfile(data);
-        setDisplayName(data.display_name || '');
-      } else {
-        
-        const defaultDisplayName = userEmail.split('@')[0];
-        try {
-          const response = await fetch('/api/create-profile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: userId,
-              displayName: defaultDisplayName,
-            }),
-          });
-
-          if (response.ok) {
-            // Reload profile after creation
-            const { data: createdProfile } = await supabase
-              .from('user_profiles')
-              .select('*')
-              .eq('user_id', userId)
-              .single();
-            
-            if (createdProfile) {
-              setProfile(createdProfile);
-              setDisplayName(createdProfile.display_name || '');
-            }
-          } else {
-            const errorData = await response.json();
-            console.error('Error creating profile:', errorData.error || 'Unknown error');
-          }
-        } catch (err) {
-          console.error('Error creating profile:', err);
-        }
-      }
-    } catch (error) {
-      console.error('Error in loadProfile:', error);
     }
   };
 
@@ -141,20 +84,20 @@ export default function AccountPage() {
   };
 
   const handleSaveDisplayName = async () => {
-    if (!profile || !displayName.trim()) return;
+    if (!editedName.trim()) return;
 
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({ display_name: displayName.trim(), updated_at: new Date().toISOString() })
-        .eq('id', profile.id);
+      // Update user metadata in auth.users
+      const { error } = await supabase.auth.updateUser({
+        data: { full_name: editedName.trim() }
+      });
 
       if (error) {
         console.error('Error updating display name:', error);
         alert('Failed to update display name');
       } else {
-        setProfile({ ...profile, display_name: displayName.trim() });
+        setFullName(editedName.trim());
         setIsEditingName(false);
       }
     } catch (error) {
@@ -166,7 +109,7 @@ export default function AccountPage() {
   };
 
   const handleCancelEdit = () => {
-    setDisplayName(profile?.display_name || '');
+    setEditedName(fullName);
     setIsEditingName(false);
   };
 
@@ -244,11 +187,7 @@ export default function AccountPage() {
               <div className="flex items-start gap-6">
                 <div className="flex-shrink-0">
                   <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-[var(--primary)] flex items-center justify-center overflow-hidden">
-                    {profile?.avatar_url ? (
-                      <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                    ) : (
-                      <FaUser className="text-white text-3xl md:text-4xl" />
-                    )}
+                    <FaUser className="text-white text-3xl md:text-4xl" />
                   </div>
                 </div>
 
@@ -258,8 +197,8 @@ export default function AccountPage() {
                       <div className="flex items-center gap-2 flex-1">
                         <input
                           type="text"
-                          value={displayName}
-                          onChange={(e) => setDisplayName(e.target.value)}
+                          value={editedName}
+                          onChange={(e) => setEditedName(e.target.value)}
                           className="flex-1 px-3 py-2 bg-[var(--input)] text-white border border-[var(--border)] rounded focus:border-[var(--primary)] outline-none"
                           placeholder="Display Name"
                         />
@@ -281,7 +220,7 @@ export default function AccountPage() {
                     ) : (
                       <>
                         <h2 className="text-xl md:text-2xl font-bold text-white">
-                          {profile?.display_name || 'User'}
+                          {fullName}
                         </h2>
                         <button
                           onClick={() => setIsEditingName(true)}
@@ -294,7 +233,7 @@ export default function AccountPage() {
                   </div>
                   <p className="text-gray-400 mb-1">{userEmail}</p>
                   <p className="text-sm text-gray-500">
-                    Member since {profile?.created_at ? formatDate(profile.created_at) : 'N/A'}
+                    Member since {memberSince ? formatDate(memberSince) : 'N/A'}
                   </p>
                 </div>
               </div>
@@ -306,7 +245,7 @@ export default function AccountPage() {
                 <h2 className="text-xl md:text-2xl font-bold text-white">Subscription</h2>
               </div>
 
-              {subscription ? (
+              {subscription && subscription.status !== 'pending' ? (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center py-3 border-b border-[var(--border)]">
                     <span className="text-gray-400">Status</span>
@@ -348,7 +287,7 @@ export default function AccountPage() {
                 <div className="text-center py-8">
                   <p className="text-gray-400 mb-4">No active subscription</p>
                   <button
-                    onClick={() => router.push('/signup')}
+                    onClick={() => router.push('/checkout')}
                     className="px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-white font-semibold rounded transition-colors"
                   >
                     Subscribe Now

@@ -16,13 +16,25 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkAuthAndSubscription = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        router.push('/library');
+        // Check if user has active subscription
+        const { data: subscription } = await supabase
+          .from('subscriptions')
+          .select('status')
+          .eq('user_id', session.user.id)
+          .eq('status', 'active')
+          .maybeSingle();
+        
+        if (subscription) {
+          router.push('/library');
+        } else {
+          router.push('/checkout');
+        }
       }
     };
-    checkAuth();
+    checkAuthAndSubscription();
 
     const savedEmail = localStorage.getItem('rememberedEmail');
     if (savedEmail) {
@@ -74,7 +86,19 @@ export default function LoginPage() {
           localStorage.removeItem('rememberedEmail');
         }
 
-        router.push('/library');
+        // Check if user has active subscription
+        const { data: subscription } = await supabase
+          .from('subscriptions')
+          .select('status')
+          .eq('user_id', data.user.id)
+          .eq('status', 'active')
+          .maybeSingle();
+        
+        if (subscription) {
+          router.push('/library');
+        } else {
+          router.push('/checkout');
+        }
       }
     } catch (err) {
       console.error('Login error:', err);
@@ -121,10 +145,11 @@ export default function LoginPage() {
     setError('');
 
     try {
+      // Redirect to home page which will check subscription and redirect accordingly
       const { error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'linkedin_oidc',
         options: {
-          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/library`,
+          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/`,
         },
       });
 

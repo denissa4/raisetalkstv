@@ -10,24 +10,42 @@ const supabase = createClient(
 export async function POST(request: NextRequest) {
   try {
     const { userId, displayName } = await request.json();
+    
+    console.log('Create profile request:', { userId, displayName });
 
     if (!userId || !displayName) {
+      console.error('Missing required fields:', { userId, displayName });
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // Check if profile already exists
+    const { data: existingProfile } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (existingProfile) {
+      console.log('Profile already exists for user:', userId);
+      return NextResponse.json({ success: true, message: 'Profile already exists' });
+    }
+
     // Create user profile
-    const { error: profileError } = await supabase
+    const { data: profileData, error: profileError } = await supabase
       .from('user_profiles')
       .insert({
         user_id: userId,
-        display_name: displayName,
-        avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=e50914&color=fff&size=200`,
-      });
+        full_name: displayName,
+      })
+      .select()
+      .single();
 
     if (profileError) {
       console.error('Error creating profile:', profileError);
-      return NextResponse.json({ error: profileError.message }, { status: 500 });
+      return NextResponse.json({ error: profileError.message, details: profileError }, { status: 500 });
     }
+    
+    console.log('Profile created successfully:', profileData);
 
     // Create pending subscription (will be activated via Stripe)
     const { error: subError } = await supabase

@@ -13,10 +13,13 @@ const supabase = createClient(
 );
 
 export async function POST(request: NextRequest) {
+  console.log('=== VERIFY SESSION API CALLED ===');
   try {
     const { sessionId } = await request.json();
+    console.log('Session ID:', sessionId);
 
     if (!sessionId) {
+      console.log('ERROR: No session ID provided');
       return NextResponse.json({ error: 'Session ID required' }, { status: 400 });
     }
 

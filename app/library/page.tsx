@@ -44,33 +44,43 @@ function LibraryContent() {
   }, [selectedCategory, videos]);
 
   const checkAuthAndLoadData = async () => {
+    console.log('=== LIBRARY: checkAuthAndLoadData started ===');
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
+        console.log('No session, redirecting to login');
         router.push('/login');
         return;
       }
+      console.log('User session found:', session.user.id);
 
       // Check if user just came from Stripe checkout
       const sessionId = searchParams.get('session_id');
+      console.log('Session ID from URL:', sessionId);
       
       // Try to find active subscription
-      const { data: subscription } = await supabase
+      let { data: subscription, error: subError } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('user_id', session.user.id)
         .eq('status', 'active')
         .maybeSingle();
+      
+      console.log('Initial subscription check:', { subscription, error: subError });
 
       if (!subscription) {
-       
+        console.log('No active subscription found');
         if (sessionId) {
+          console.log('Session ID present, starting polling...');
           setProcessingPayment(true);
           let attempts = 0;
           const maxAttempts = 10;
           
-          const pollForSubscription = async (): Promise<boolean> => {
+          // Poll for subscription (webhook might take time)
+          while (attempts < maxAttempts && !subscription) {
+            console.log(`Polling attempt ${attempts + 1}/${maxAttempts}...`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
             const { data: sub } = await supabase
               .from('subscriptions')
               .select('*')
@@ -79,23 +89,16 @@ function LibraryContent() {
               .maybeSingle();
             
             if (sub) {
-              setProcessingPayment(false);
-              return true;
+              console.log('Subscription found during polling:', sub);
+              subscription = sub;
+              break;
             }
-            
             attempts++;
-            if (attempts < maxAttempts) {
-              await new Promise(resolve => setTimeout(resolve, 2000));
-              return pollForSubscription();
-            }
-            return false;
-          };
+          }
           
-          const found = await pollForSubscription();
-          if (!found) {
+          // If still no subscription, try backup verification
+          if (!subscription) {
             console.log('Subscription not found after polling, trying backup verification...');
-            
-            // Try to verify and create subscription directly from Stripe session
             try {
               const response = await fetch('/api/verify-session', {
                 method: 'POST',
@@ -103,30 +106,53 @@ function LibraryContent() {
                 body: JSON.stringify({ sessionId }),
               });
               
-              const result = await response.json();
               if (response.ok) {
                 console.log('Subscription created via backup verification');
-                setProcessingPayment(false);
+                // Re-check subscription after backup verification
+                const { data: verifiedSub } = await supabase
+                  .from('subscriptions')
+                  .select('*')
+                  .eq('user_id', session.user.id)
+                  .eq('status', 'active')
+                  .maybeSingle();
+                subscription = verifiedSub;
               } else {
+                const result = await response.json();
                 console.error('Backup verification failed:', result.error || result);
-                // Still proceed to show the page
-                setProcessingPayment(false);
               }
             } catch (err) {
               console.error('Backup verification error:', err);
-              setProcessingPayment(false);
             }
           }
+          
+          setProcessingPayment(false);
+          
+          // If still no subscription after all attempts, redirect to checkout
+          if (!subscription) {
+            console.log('No subscription found after all verification attempts');
+            router.push('/checkout?error=payment_pending');
+            return;
+          }
+          console.log('Subscription verified successfully:', subscription);
         } else {
+          // No session_id and no subscription - redirect to checkout
+          console.log('No session_id and no subscription, redirecting to checkout');
           router.push('/checkout');
           return;
         }
+      } else {
+        console.log('Active subscription already exists:', subscription);
       }
 
+      // User has subscription, load content
+      console.log('Loading videos...');
       await loadVideos();
+      console.log('Loading my list...');
       loadMyList();
+      console.log('Content loaded successfully!');
     } catch (error) {
       console.error('Error checking auth:', error);
+      setIsLoading(false);
       router.push('/login');
     }
   };

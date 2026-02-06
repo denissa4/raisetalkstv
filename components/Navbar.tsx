@@ -12,6 +12,7 @@ export default function Navbar() {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
@@ -27,29 +28,51 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
-    // Check authentication state
-    const checkAuth = async () => {
+ 
+    const checkAuthAndSubscription = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setIsAuthenticated(true);
         setUserEmail(session.user.email || null);
+        
+        
+        const { data: subscription } = await supabase
+          .from('subscriptions')
+          .select('status')
+          .eq('user_id', session.user.id)
+          .eq('status', 'active')
+          .maybeSingle();
+        
+        setHasActiveSubscription(!!subscription);
       } else {
         setIsAuthenticated(false);
         setUserEmail(null);
+        setHasActiveSubscription(false);
       }
       setIsLoading(false);
     };
     
-    checkAuth();
+    checkAuthAndSubscription();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         setIsAuthenticated(true);
         setUserEmail(session.user.email || null);
+        
+        
+        const { data: sub } = await supabase
+          .from('subscriptions')
+          .select('status')
+          .eq('user_id', session.user.id)
+          .eq('status', 'active')
+          .maybeSingle();
+        
+        setHasActiveSubscription(!!sub);
       } else {
         setIsAuthenticated(false);
         setUserEmail(null);
+        setHasActiveSubscription(false);
       }
     });
 
@@ -62,12 +85,15 @@ export default function Navbar() {
   };
 
   // Check if we're on a public page
-  const isPublicPage = ['/', '/login', '/signup'].includes(pathname);
+  const isPublicPage = ['/', '/login', '/signup', '/checkout'].includes(pathname);
   
-  // Only show authenticated nav on protected pages
-  const showAuthenticatedNav = isAuthenticated && !isPublicPage;
+ 
+  const showSubscribedNav = isAuthenticated && hasActiveSubscription && !isPublicPage;
+  
 
-  const navLinks = showAuthenticatedNav
+  const showLimitedAuthNav = isAuthenticated && !hasActiveSubscription;
+
+  const navLinks = showSubscribedNav
     ? [
         { name: 'Home', path: '/library', view: 'home' },
         { name: 'My List', path: '/library?view=mylist', view: 'mylist' },
@@ -97,7 +123,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16 md:h-20">
           <div className="flex items-center gap-8">
             <button
-              onClick={() => router.push(isAuthenticated ? '/library' : '/')}
+              onClick={() => router.push(hasActiveSubscription ? '/library' : '/')}
               className="text-[var(--primary)] text-2xl md:text-3xl font-bold tracking-tight hover:scale-105 transition-transform"
             >
               RAISETALKS.TV
@@ -129,15 +155,30 @@ export default function Navbar() {
           <div className="flex items-center gap-4 md:gap-6">
             {isLoading ? (
               <div className="w-8 h-8 rounded bg-[var(--secondary)] animate-pulse"></div>
-            ) : showAuthenticatedNav ? (
+            ) : isAuthenticated ? (
               <>
-                <button className="hidden md:flex items-center justify-center w-9 h-9 text-white hover:text-gray-300 transition-colors">
-                  <FaSearch className="text-lg" />
-                </button>
+                {/* Only show search/bell icons for subscribed users */}
+                {showSubscribedNav && (
+                  <>
+                    <button className="hidden md:flex items-center justify-center w-9 h-9 text-white hover:text-gray-300 transition-colors">
+                      <FaSearch className="text-lg" />
+                    </button>
 
-                <button className="hidden md:flex items-center justify-center w-9 h-9 text-white hover:text-gray-300 transition-colors">
-                  <FaBell className="text-lg" />
-                </button>
+                    <button className="hidden md:flex items-center justify-center w-9 h-9 text-white hover:text-gray-300 transition-colors">
+                      <FaBell className="text-lg" />
+                    </button>
+                  </>
+                )}
+                
+                {/* Show subscribe button for authenticated users without subscription */}
+                {showLimitedAuthNav && (
+                  <button
+                    onClick={() => router.push('/checkout')}
+                    className="hidden md:block px-4 py-2 bg-[var(--primary)] text-white text-sm font-semibold rounded hover:bg-[var(--primary)]/90 transition-colors"
+                  >
+                    Subscribe
+                  </button>
+                )}
 
                 <div className="relative">
                   <button
@@ -165,7 +206,21 @@ export default function Navbar() {
                       >
                         <div className="p-3 border-b border-[var(--border)]">
                           <p className="text-sm text-gray-300 truncate">{userEmail}</p>
+                          {!hasActiveSubscription && (
+                            <p className="text-xs text-yellow-400 mt-1">No active subscription</p>
+                          )}
                         </div>
+                        {showLimitedAuthNav && (
+                          <button
+                            onClick={() => {
+                              setShowProfileMenu(false);
+                              router.push('/checkout');
+                            }}
+                            className="w-full px-4 py-3 text-left text-sm text-[var(--primary)] hover:bg-[var(--secondary)] transition-colors font-semibold"
+                          >
+                            Subscribe Now
+                          </button>
+                        )}
                         <button
                           onClick={() => {
                             setShowProfileMenu(false);
@@ -234,8 +289,20 @@ export default function Navbar() {
                   {link.name}
                 </button>
               ))}
-              {showAuthenticatedNav && (
+              {isAuthenticated && (
                 <>
+                  {/* Show subscribe button for authenticated users without subscription */}
+                  {showLimitedAuthNav && (
+                    <button
+                      onClick={() => {
+                        router.push('/checkout');
+                        setShowMobileMenu(false);
+                      }}
+                      className="block w-full text-left px-4 py-3 text-sm font-medium text-[var(--primary)] hover:bg-[var(--secondary)] rounded transition-colors"
+                    >
+                      Subscribe Now
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       router.push('/account');

@@ -20,13 +20,25 @@ export default function SignUpPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkAuthAndSubscription = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        router.push('/library');
+        // Check if user has active subscription
+        const { data: subscription } = await supabase
+          .from('subscriptions')
+          .select('status')
+          .eq('user_id', session.user.id)
+          .eq('status', 'active')
+          .maybeSingle();
+        
+        if (subscription) {
+          router.push('/library');
+        } else {
+          router.push('/checkout');
+        }
       }
     };
-    checkAuth();
+    checkAuthAndSubscription();
   }, [router]);
 
   const validateForm = () => {
@@ -68,7 +80,11 @@ export default function SignUpPage() {
         email,
         password,
         options: {
+          // Redirect to home page after email verification, which will check subscription and redirect to checkout
           emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/`,
+          data: {
+            full_name: displayName,  
+          },
         },
       });
 
@@ -87,29 +103,31 @@ export default function SignUpPage() {
         }
 
         try {
-          const response = await fetch('/api/create-profile', {
+          console.log('Creating pending subscription for user:', data.user.id);
+          const response = await fetch('/api/create-subscription', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               userId: data.user.id,
-              displayName: displayName,
             }),
           });
 
+          const result = await response.json();
           if (!response.ok) {
-            const error = await response.json();
-            console.error('Error creating profile:', error);
+            console.error('Error creating subscription:', result);
+          } else {
+            console.log('Pending subscription created:', result);
           }
         } catch (err) {
-          console.error('Failed to create profile:', err);
+          console.error('Failed to create subscription:', err);
         }
 
-       
+        // If email verification is required, show the email sent message
         if (!data.session) {
           setEmailSent(true);
         } else {
-          
-          router.push('/library');
+          // New users won't have a subscription, redirect to checkout
+          router.push('/checkout');
         }
       }
     } catch (err) {

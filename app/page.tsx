@@ -13,28 +13,56 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkAuthAndSubscription = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         setIsAuthenticated(true);
-        router.push('/library');
+        
+        // Check if user has active subscription
+        const { data: subscription } = await supabase
+          .from('subscriptions')
+          .select('status')
+          .eq('user_id', session.user.id)
+          .eq('status', 'active')
+          .maybeSingle();
+        
+        if (subscription) {
+          // User has active subscription, go to library
+          router.push('/library');
+        } else {
+          // User is authenticated but no subscription, go to checkout
+          router.push('/checkout');
+        }
       } else {
         setIsLoading(false);
       }
     };
 
-    checkAuth();
+    checkAuthAndSubscription();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session) {
         setIsAuthenticated(true);
-        router.push('/library');
+        
+        // Check subscription on auth change
+        const { data: sub } = await supabase
+          .from('subscriptions')
+          .select('status')
+          .eq('user_id', session.user.id)
+          .eq('status', 'active')
+          .maybeSingle();
+        
+        if (sub) {
+          router.push('/library');
+        } else {
+          router.push('/checkout');
+        }
       } else {
         setIsAuthenticated(false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => authSubscription.unsubscribe();
   }, [router]);
 
   if (isLoading) {

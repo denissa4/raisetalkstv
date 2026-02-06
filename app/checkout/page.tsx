@@ -1,14 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const [error, setError] = useState<string | null>(null);
+  const [paymentPending, setPaymentPending] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
+    // Check if redirected due to payment pending
+    const errorParam = searchParams.get('error');
+    if (errorParam === 'payment_pending') {
+      setPaymentPending(true);
+      return;
+    }
+
     const initiateCheckout = async () => {
       try {
         // Check if user is logged in
@@ -61,7 +70,55 @@ export default function CheckoutPage() {
     };
 
     initiateCheckout();
-  }, [router]);
+  }, [router, searchParams]);
+
+  // Show payment pending message
+  if (paymentPending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-4">
+        <div className="max-w-md w-full bg-[var(--card)] rounded-lg shadow-lg p-8 text-center border border-[var(--border)]">
+          <div className="mb-4">
+            <svg
+              className="mx-auto h-12 w-12 text-yellow-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">
+            Payment Processing
+          </h2>
+          <p className="text-gray-400 mb-6">
+            Your payment is still being processed. This usually takes a few moments. 
+            Please wait or try again.
+          </p>
+          <div className="space-y-3">
+            <button
+              onClick={() => router.push('/library')}
+              className="w-full bg-[var(--primary)] text-white py-3 px-4 rounded-lg font-medium hover:bg-[var(--primary)]/90 transition-colors"
+            >
+              Check Subscription Status
+            </button>
+            <button
+              onClick={() => {
+                setPaymentPending(false);
+              }}
+              className="w-full bg-[var(--secondary)] text-white py-3 px-4 rounded-lg font-medium hover:bg-[var(--muted)] transition-colors"
+            >
+              Try Payment Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (
@@ -109,5 +166,17 @@ export default function CheckoutPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
+        <div className="w-12 h-12 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    }>
+      <CheckoutContent />
+    </Suspense>
   );
 }

@@ -69,8 +69,8 @@ export default function Navbar() {
   const navLinks = showAuthenticatedNav
     ? [
         { name: 'Home', path: '/library' },
-        { name: 'My List', path: '/library' },
-        { name: 'Browse', path: '/library' },
+        { name: 'My List', path: '/my-list' },
+        { name: 'Browse', path: '/browse' },
       ]
     : [
         { name: 'Home', path: '/' },

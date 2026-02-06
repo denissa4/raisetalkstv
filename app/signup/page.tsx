@@ -15,6 +15,8 @@ export default function SignUpPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailExists, setEmailExists] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -77,7 +79,13 @@ export default function SignUpPage() {
       }
 
       if (data.user) {
-      
+        
+        if (data.user.identities?.length === 0) {
+          setEmailExists(true);
+          setIsLoading(false);
+          return;
+        }
+
         try {
           const response = await fetch('/api/create-profile', {
             method: 'POST',
@@ -94,10 +102,15 @@ export default function SignUpPage() {
           }
         } catch (err) {
           console.error('Failed to create profile:', err);
-          
         }
 
-        router.push('/library');
+       
+        if (!data.session) {
+          setEmailSent(true);
+        } else {
+          
+          router.push('/library');
+        }
       }
     } catch (err) {
       console.error('Sign up error:', err);
@@ -106,6 +119,127 @@ export default function SignUpPage() {
       setIsLoading(false);
     }
   };
+
+
+  if (emailExists) {
+    return (
+      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center px-4 py-12">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-[var(--primary)]/10 via-transparent to-purple-600/10" />
+          <img
+            src="https://picsum.photos/seed/signup/1920/1080"
+            alt="Background"
+            className="w-full h-full object-cover opacity-10"
+          />
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="relative z-10 w-full max-w-md"
+        >
+          <div className="bg-[var(--card)] rounded-lg p-8 md:p-10 shadow-2xl border border-[var(--border)] text-center">
+            <div className="mb-6">
+              <div className="w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FaUser className="text-yellow-500 text-2xl" />
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Account Already Exists</h1>
+              <p className="text-gray-400">
+                An account with this email already exists
+              </p>
+              <p className="text-white font-medium mt-1">{email}</p>
+            </div>
+
+            <div className="bg-[var(--input)] rounded-lg p-4 mb-6 border border-[var(--border)]">
+              <p className="text-gray-300 text-sm">
+                Please sign in with your existing account. If you forgot your password, you can reset it from the login page.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => router.push('/login')}
+                className="w-full py-3 bg-[var(--primary)] text-white font-semibold rounded hover:bg-[var(--primary)]/90 transition-all duration-300"
+              >
+                Go to Sign In
+              </button>
+              <button
+                onClick={() => {
+                  setEmailExists(false);
+                  setEmail('');
+                }}
+                className="w-full py-3 bg-transparent text-gray-400 font-medium hover:text-white transition-colors"
+              >
+                Use a different email
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Show email verification confirmation
+  if (emailSent) {
+    return (
+      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center px-4 py-12">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-[var(--primary)]/10 via-transparent to-purple-600/10" />
+          <img
+            src="https://picsum.photos/seed/signup/1920/1080"
+            alt="Background"
+            className="w-full h-full object-cover opacity-10"
+          />
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="relative z-10 w-full max-w-md"
+        >
+          <div className="bg-[var(--card)] rounded-lg p-8 md:p-10 shadow-2xl border border-[var(--border)] text-center">
+            <div className="mb-6">
+              <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FaEnvelope className="text-green-500 text-2xl" />
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Check Your Email</h1>
+              <p className="text-gray-400">
+                We&apos;ve sent a verification link to
+              </p>
+              <p className="text-white font-medium mt-1">{email}</p>
+            </div>
+
+            <div className="bg-[var(--input)] rounded-lg p-4 mb-6 border border-[var(--border)]">
+              <p className="text-gray-300 text-sm">
+                Click the link in the email to verify your account. Once verified, you can sign in and start watching.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => router.push('/login')}
+                className="w-full py-3 bg-[var(--primary)] text-white font-semibold rounded hover:bg-[var(--primary)]/90 transition-all duration-300"
+              >
+                Go to Sign In
+              </button>
+              <button
+                onClick={() => setEmailSent(false)}
+                className="w-full py-3 bg-transparent text-gray-400 font-medium hover:text-white transition-colors"
+              >
+                Use a different email
+              </button>
+            </div>
+
+            <p className="mt-6 text-xs text-gray-500">
+              Didn&apos;t receive the email? Check your spam folder or try signing up again.
+            </p>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[var(--background)] flex items-center justify-center px-4 py-12">

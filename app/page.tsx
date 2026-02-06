@@ -101,10 +101,10 @@ export default function HomePage() {
             </div>
             <div className="order-1 md:order-2">
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 md:mb-6">
-                Download your shows to watch offline
+                Upload your own founders story
               </h2>
               <p className="text-base md:text-lg text-gray-300 leading-relaxed">
-                Save your favorites easily and always have something to watch.
+                Standout with your own story in front of our investors.
               </p>
             </div>
           </motion.div>
